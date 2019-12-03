@@ -1,0 +1,9 @@
+/.classpath
+/bin/
+/bin-test/
+/build/
+/.gradle/
+
+# Aus dem Settings-Ordner nur die Datei mit dem Encoding committen
+/.settings/*
+!/.settings/org.eclipse.core.resources.prefs

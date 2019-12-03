@@ -1,0 +1,119 @@
+// Script constants
+ext.constants = [
+	properties: [
+		fileName: 'homepage32.properties',
+		keys: [
+			defaultGroup: 'default.group'
+		],
+		defaultValues: [
+			defaultGroup: 'io.homepage32'
+		]
+	]
+]
+
+// Prints a line with indentation
+def printTabs = { tabCount, content ->
+    for(def i = 0; i < tabCount; i++)
+    {
+        print '    '
+    }
+    println "> ${content}"
+}
+
+rootProject.name = 'master'
+
+println ''
+printTabs 0, 'Initializing'
+printTabs 1, "Reading configuration file '${constants.properties.fileName}'"
+
+def properties = new Properties() 
+File propsFile = file(constants.properties.fileName);
+
+if (!propsFile.exists())
+{
+	printTabs 1, "Configuration file not found, creating it"
+	propsFile.createNewFile()
+	
+	printTabs 1, 'Initializing configuration file with default values'
+	def tempProperties = new Properties()
+	tempProperties.load(propsFile.newDataInputStream())
+
+    for(entry in constants.properties.keys)
+    {
+        printTabs 2, "${entry.value}=${constants.properties.defaultValues[entry.key]}"
+	    properties.setProperty(entry.value, constants.properties.defaultValues[entry.key])
+    }
+	
+	tempProperties.store(propsFile.newWriter(), null)
+	printTabs 1, 'Initialized configuration file successfully'
+}
+
+properties.load(propsFile.newDataInputStream())
+
+def rootDir = file('..')
+printTabs 0, "Loading projects from ${rootDir.path}"
+
+def skippedFolders = 0
+def includedProjects = 0
+def ignoredProjects = 0
+
+def defaultGroup = properties.getProperty(constants.properties.keys.defaultGroup)
+
+rootDir.eachDir { sub ->
+	printTabs 1, "${sub.name} [${sub.path}]"
+
+	// Ignore root project
+	if (rootProject.name == sub.name)
+	{
+		printTabs 2, "Skipping (is root project)"
+		skippedFolders++
+		return
+	}
+
+	// Ignore folders without eclipse .project file	
+	if (!new File(sub, '.project').exists())
+	{
+		printTabs 2, "Skipping (is non-project folder)"
+		skippedFolders++
+		return
+	}
+	
+	// Project name
+	def projectName = ":${sub.name}"
+	def projectProp = "project.${sub.name}.open"
+	
+	// Check if project should be opened
+	def projectOpen = properties.getProperty(projectProp, 'null')
+	
+    // If project should be ignored
+	if(projectOpen == 'false')
+	{
+		printTabs 2, "Ignoring project (found '${projectProp}=false')"
+		ignoredProjects++
+	}
+    // Else project should not be ignored
+	else 
+	{
+        // Include project and set project dir
+		include(projectName)
+		project(projectName).projectDir = sub
+	
+		includedProjects++
+
+        // Add project entry if it does not exist in project.properties file
+		if (projectOpen == 'null')
+        {
+        	printTabs 2, "New project, adding '${projectProp}=true'"
+			properties.setProperty(projectProp, 'true')
+		}
+		
+		printTabs 2, "Available as '${defaultGroup + projectName}'"
+	}
+}
+
+properties.store(propsFile.newWriter(), null)
+
+printTabs 0, 'Project successfully initialized'
+printTabs 1, "Included ${includedProjects} projects"
+printTabs 1, "Ignored ${ignoredProjects} projects"
+printTabs 1, "Skipped ${skippedFolders} folders"

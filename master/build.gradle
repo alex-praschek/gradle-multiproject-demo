@@ -1,0 +1,53 @@
+plugins {
+    id 'java'
+    id 'eclipse'
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'eclipse'
+
+    group 'io.homepage32.test'
+    sourceCompatibility = JavaVersion.VERSION_12
+    
+	configurations {
+	 	module {
+	 		extendsFrom implementation
+	 	}
+	 }
+
+    repositories {
+        mavenLocal()
+        mavenCentral()
+    }
+
+    dependencies {
+        compileOnly "org.projectlombok:lombok:1.18.10"
+        annotationProcessor "org.projectlombok:lombok:1.18.10"
+    }
+}
+
+/**
+ * Checks whether the passed dependency matches the passed project.
+ */
+ext.checkDependency = { dependency, project ->
+	return dependency.requested.group == project.group && dependency.requested.module == project.name
+}
+
+allprojects {
+	configurations.all {
+	    resolutionStrategy.dependencySubstitution {
+	    	all { dependency ->    			
+				def matching = rootProject.subprojects.find { project -> checkDependency(dependency, project) }
+				if (matching) dependency.useTarget project(":" + dependency.requested.module)
+	    	}
+	    }
+	}
+	
+	eclipse.classpath.file {
+		whenMerged { classpath ->
+			eclipse.classpath.containers.forEach { entry -> if(entry.contains("JavaSE")) eclipse.classpath.containers.remove(entry) }
+			classpath.entries << new org.gradle.plugins.ide.eclipse.model.Container("org.eclipse.jdt.launching.JRE_CONTAINER")
+		}
+	}
+}
